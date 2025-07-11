@@ -1,9 +1,16 @@
 import streamlit as st
-
-st.title("RK stock!")
-st.write("Yeh Ritesh k stock center hai powered by RK.")
 from nsepy import get_history
 from datetime import date
 
-data = get_history(symbol="RELIANCE", start=date(2024,1,1), end=date(2024,7,1))
-st.write(data.tail())
+st.title("📊 Stock Data Viewer")
+
+symbol = st.selectbox("Choose Stock", ["RELIANCE", "TCS", "INFY", "HDFCBANK"])
+start = st.date_input("Start Date", value=date(2024, 1, 1))
+end = st.date_input("End Date", value=date(2024, 7, 1))
+
+if st.button("Fetch Data"):
+    try:
+        data = get_history(symbol=symbol, start=start, end=end, frame=None)
+        st.dataframe(data)
+    except Exception as e:
+        st.error(f"Error fetching data: {e}")
