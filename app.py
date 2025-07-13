@@ -3,76 +3,52 @@ import pandas as pd
 import yfinance as yf
 import requests
 
-# 🔧 Config
+# 🔧 Page config
 st.set_page_config(page_title="RK Stock Center", layout="centered")
 st.title("RK Stock Center 📈")
-st.subheader("Live Stock Data + AI News Sentiment")
+st.subheader("Live Stock Screener with AI-Powered News Sentiment")
 
-# 📌 Symbol Input
-symbol = st.text_input("Enter stock symbol (e.g. SUZLON.NS, RELIANCE.NS)")
+# 📌 Symbol input field
+symbol = st.text_input("Enter stock symbol (e.g. SUZLON.NS, RELIANCE.NS, TCS.NS)")
 
-# 📈 Fetch stock data
+# 📈 Function to fetch stock data
 def fetch_stock_data(symbol):
     try:
         data = yf.download(symbol, period="1mo")
-        return data["Close"] if not data.empty else None
-    except:
+        if data.empty:
+            return None
+        return data["Close"]
+    except Exception:
         return None
 
-# 🧠 Fetch news sentiment
+# 🧠 Function to fetch news sentiment
 def fetch_news_sentiment(symbol):
     try:
         url = f"https://api.marketaux.com/v1/news/all?symbols={symbol}&filter_entities=true&language=en&api_token=YOUR_MARKETAUX_API_KEY"
-        res = requests.get(url)
-        articles = res.json().get("data", [])
-        score = sum(a.get("sentiment_score", 0) for a in articles)
-        return score / len(articles) if articles else 0
-    except:
-        return 0
-
-# 🔍 Process + Display
-if symbol:
-    st.markdown(f"### {symbol}")
-    chart = fetch_stock_data(symbol)
-    sentiment = fetch_news_sentiment(symbol)
-
-    if chart is not None:
-        st.line_chart(chart)
-
-        if sentiment > 0.3:
-            st.success("🟢 Positive sentiment — BUY signal")
-        elif sentiment < -0.3:
-            st.error("🔴 Negative sentiment — ignore for now")
-        else:
-            st.info("🟡 Neutral sentiment — monitor")
-
-    else:
-        st.warning("⚠️ No data found. Check symbol format or try another.")
-
-    try:
-        res = requests.get(url)
-        articles = res.json().get("data", [])
-        score = sum([a.get("sentiment_score", 0) for a in articles])
-        avg = score / len(articles) if articles else 0
-        return avg
+        response = requests.get(url)
+        articles = response.json().get("data", [])
+        sentiment_score = sum(article.get("sentiment_score", 0) for article in articles)
+        avg_sentiment = sentiment_score / len(articles) if articles else 0
+        return avg_sentiment
     except Exception:
         return 0
 
-# 💡 Process
+# 🔍 Processing section
 if symbol:
-    st.markdown(f"### 📌 {symbol}")
-    chart = fetch_stock_data(symbol)
-    sentiment = fetch_news_sentiment(symbol)
+    st.markdown(f"### Stock: {symbol}")
+    chart_data = fetch_stock_data(symbol)
+    news_sentiment = fetch_news_sentiment(symbol)
 
-    if chart is not None and not chart.empty:
-        st.line_chart(chart)
+    if chart_data is not None:
+        st.line_chart(chart_data)
 
-        if sentiment > 0.3:
-            st.success("🟢 Positive news sentiment — relevant for BUY consideration.")
-        elif sentiment < -0.3:
-            st.error("🔴 Negative sentiment — not relevant currently.")
+        # 💡 Sentiment suggestion
+        if news_sentiment > 0.3:
+            st.success("🟢 Positive sentiment — BUY signal")
+        elif news_sentiment < -0.3:
+            st.error("🔴 Negative sentiment — avoid for now")
         else:
-            st.info("🟡 Neutral sentiment — monitor further.")
+            st.info("🟡 Neutral sentiment — watchlist candidate")
     else:
-        st.warning("⚠️ No stock data found. Please check symbol or API limits.")
+        st.warning("⚠️ No stock data found. Check symbol format or try another.")
 
