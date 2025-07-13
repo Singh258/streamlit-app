@@ -1,31 +1,35 @@
 import streamlit as st
 import requests
 
-# --- UI Setup ---
 st.set_page_config(page_title="Indian Stock Screener", layout="centered")
 st.title("📈 Indian Stock Market Insights")
 
-# --- Helper Function ---
+# ---- Add your API key here ----
+API_KEY = "YOUR_INDIANAPI_KEY"
+
 def fetch_stock_data(stock_name):
     url = f"https://indianapi.in/api/stock?name={stock_name}"
     headers = {
         "User-Agent": "Mozilla/5.0",
-        "Accept": "application/json"
+        "Accept": "application/json",
+        "Authorization": f"Bearer {API_KEY}"
     }
     try:
-        response = requests.get(url, headers=headers)
-        data = response.json()
-        return data
+        response = requests.get(url, headers=headers, timeout=5)
+        if response.status_code == 200:
+            return response.json()
+        else:
+            return {"error": f"API Error {response.status_code}"}
     except Exception as e:
         return {"error": str(e)}
 
-# --- User Input ---
 stock_query = st.text_input("🔍 Enter Stock Name (e.g., Reliance, TCS, Suzlon)")
 if stock_query:
     result = fetch_stock_data(stock_query)
     
     if "error" in result or "currentPrice" not in result:
-        st.error("⚠️ Unable to fetch data. Check stock name or try again later.")
+        st.error(f"⚠️ Error: {result.get('error', 'Unknown issue')}")
+        st.caption("🧠 Make sure your API key is valid and the symbol exists.")
     else:
         st.subheader(f"📊 {result['companyName']} ({result['tickerId']})")
         price = result["currentPrice"]["NSE"]
@@ -40,9 +44,6 @@ if stock_query:
         col3.metric("52W High", f"{high}")
         col4.metric("52W Low", f"{low}")
 
-        st.caption("📅 Data fetched from Indian Stock Exchange API")
-
-        # --- Optional News Section ---
         if "recentNews" in result and result["recentNews"]:
             st.subheader("📰 Recent News")
             for news in result["recentNews"][:3]:
