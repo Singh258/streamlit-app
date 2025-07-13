@@ -1,40 +1,54 @@
 import streamlit as st
 import pandas as pd
+import yfinance as yf
 import requests
-from datetime import datetime, timedelta
 
-# 📅 Date Range
-end_date = datetime.today().strftime('%Y-%m-%d')
-start_date = (datetime.today() - timedelta(days=30)).strftime('%Y-%m-%d')
-
-# 🔑 API Keys — replace with actual values
-ALPHA_VANTAGE_KEY = "YOUR_ALPHA_VANTAGE_API_KEY"
-MARKETAUX_KEY = "YOUR_MARKETAUX_API_KEY"
-
-# 🔧 Streamlit Config
+# 🔧 Config
 st.set_page_config(page_title="RK Stock Center", layout="centered")
 st.title("RK Stock Center 📈")
-st.subheader("Real-time Penny Stock Screener with AI News Relevance")
+st.subheader("Live Stock Data + AI News Sentiment")
 
 # 📌 Symbol Input
-symbol = st.text_input("Enter penny stock symbol (e.g. IDEA.BSE)", max_chars=12)
+symbol = st.text_input("Enter stock symbol (e.g. SUZLON.NS, RELIANCE.NS)")
 
-# 🔍 Functions
+# 📈 Fetch stock data
 def fetch_stock_data(symbol):
-    url = f"https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol={symbol}&apikey={ALPHA_VANTAGE_KEY}"
     try:
-        res = requests.get(url)
-        data = res.json().get("Time Series (Daily)", {})
-        df = pd.DataFrame.from_dict(data, orient="index")
-        df = df.rename(columns={"4. close": "Close"})
-        df["Close"] = pd.to_numeric(df["Close"], errors="coerce")
-        df = df.sort_index().tail(30)
-        return df["Close"]
-    except Exception:
+        data = yf.download(symbol, period="1mo")
+        return data["Close"] if not data.empty else None
+    except:
         return None
 
+# 🧠 Fetch news sentiment
 def fetch_news_sentiment(symbol):
-    url = f"https://api.marketaux.com/v1/news/all?symbols={symbol}&filter_entities=true&language=en&api_token={MARKETAUX_KEY}"
+    try:
+        url = f"https://api.marketaux.com/v1/news/all?symbols={symbol}&filter_entities=true&language=en&api_token=YOUR_MARKETAUX_API_KEY"
+        res = requests.get(url)
+        articles = res.json().get("data", [])
+        score = sum(a.get("sentiment_score", 0) for a in articles)
+        return score / len(articles) if articles else 0
+    except:
+        return 0
+
+# 🔍 Process + Display
+if symbol:
+    st.markdown(f"### {symbol}")
+    chart = fetch_stock_data(symbol)
+    sentiment = fetch_news_sentiment(symbol)
+
+    if chart is not None:
+        st.line_chart(chart)
+
+        if sentiment > 0.3:
+            st.success("🟢 Positive sentiment — BUY signal")
+        elif sentiment < -0.3:
+            st.error("🔴 Negative sentiment — ignore for now")
+        else:
+            st.info("🟡 Neutral sentiment — monitor")
+
+    else:
+        st.warning("⚠️ No data found. Check symbol format or try another.")
+
     try:
         res = requests.get(url)
         articles = res.json().get("data", [])
