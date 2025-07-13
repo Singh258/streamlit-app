@@ -1,54 +1,51 @@
 import streamlit as st
-import pandas as pd
 import yfinance as yf
-import requests
+from datetime import datetime
 
-# 🔧 Page config
-st.set_page_config(page_title="RK Stock Center", layout="centered")
-st.title("RK Stock Center 📈")
-st.subheader("Live Stock Screener with AI-Powered News Sentiment")
+# --- UI Setup ---
+st.set_page_config(page_title="Stock Insights", layout="centered")
+st.title("📈 Real-Time Stock Insights")
 
-# 📌 Symbol input field
-symbol = st.text_input("Enter stock symbol (e.g. SUZLON.NS, RELIANCE.NS, TCS.NS)")
-
-# 📈 Function to fetch stock data
-def fetch_stock_data(symbol):
-    try:
-        data = yf.download(symbol, period="1mo")
-        if data.empty:
-            return None
-        return data["Close"]
-    except Exception:
-        return None
-
-# 🧠 Function to fetch news sentiment
-def fetch_news_sentiment(symbol):
-    try:
-        url = f"https://api.marketaux.com/v1/news/all?symbols={symbol}&filter_entities=true&language=en&api_token=YOUR_MARKETAUX_API_KEY"
-        response = requests.get(url)
-        articles = response.json().get("data", [])
-        sentiment_score = sum(article.get("sentiment_score", 0) for article in articles)
-        avg_sentiment = sentiment_score / len(articles) if articles else 0
-        return avg_sentiment
-    except Exception:
-        return 0
-
-# 🔍 Processing section
+# --- User Input ---
+symbol = st.text_input("🔍 Enter Stock Symbol (e.g., AAPL, TCS.NS)")
 if symbol:
-    st.markdown(f"### Stock: {symbol}")
-    chart_data = fetch_stock_data(symbol)
-    news_sentiment = fetch_news_sentiment(symbol)
+    try:
+        # --- Data Fetching ---
+        data = yf.Ticker(symbol)
+        hist = data.history(period="1d")
+        
+        # --- Metrics Extraction ---
+        current_price = round(hist["Close"].iloc[-1], 2)
+        day_high = round(hist["High"].iloc[-1], 2)
+        day_low = round(hist["Low"].iloc[-1], 2)
+        volume = int(hist["Volume"].iloc[-1])
 
-    if chart_data is not None:
-        st.line_chart(chart_data)
+        # --- Display Core Metrics ---
+        st.subheader("📊 Stock Metrics")
+        col1, col2, col3, col4 = st.columns(4)
+        col1.metric("Current Price", f"${current_price}")
+        col2.metric("Day High", f"${day_high}")
+        col3.metric("Day Low", f"${day_low}")
+        col4.metric("Volume", f"{volume:,}")
 
-        # 💡 Sentiment suggestion
-        if news_sentiment > 0.3:
-            st.success("🟢 Positive sentiment — BUY signal")
-        elif news_sentiment < -0.3:
-            st.error("🔴 Negative sentiment — avoid for now")
+        # --- Sentiment Stub ---
+        sentiment = "Neutral"  # Placeholder until NLP or news API added
+        st.subheader("🧠 Sentiment Analysis")
+        if sentiment == "Positive":
+            st.success("📈 Positive news sentiment detected — potential buying opportunity.")
+        elif sentiment == "Negative":
+            st.error("📉 Negative sentiment — caution advised.")
         else:
-            st.info("🟡 Neutral sentiment — watchlist candidate")
-    else:
-        st.warning("⚠️ No stock data found. Check symbol format or try another.")
+            st.warning("⚖️ Neutral sentiment — may be worth watching.")
+
+        # --- Advanced Toggle ---
+        if st.checkbox("Show Advanced Metrics"):
+            atr = round(day_high - day_low, 2)
+            support = round(day_low * 0.98, 2)
+            resistance = round(day_high * 1.02, 2)
+            st.markdown(f"🌀 Volatility Estimate (ATR-like): **{atr}**")
+            st.markdown(f"🧱 Support Zone: **{support}**, 🚧 Resistance Zone: **{resistance}**")
+
+    except Exception as e:
+        st.error(f"❌ Data fetch error: {e}")
 
