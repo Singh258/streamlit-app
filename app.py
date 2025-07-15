@@ -1,62 +1,53 @@
 import streamlit as st
 import yfinance as yf
 
-# Page setup
-st.set_page_config(page_title="📈 Ritesh Real Time Stock Tracker", layout="centered")
-st.title("📊 Ritesh Real Time NSE Stock Tracker")
+def fetch_stock(symbol):
+    stock = yf.Ticker(symbol)
+    info = stock.info
+    hist = stock.history(period="1d", interval="5m")
 
-st.markdown("Track live NSE stock data in INR. Enter a symbol OR explore penny stocks under ₹100 🪙")
-
-# --- User Input Section ---
-symbol = st.text_input("🔎 Enter NSE stock symbol (e.g., SUZLON, INFY, RELIANCE)").strip().upper()
-
-search = st.button("📥 Search Price")
-
-# --- Symbol-Based Price Fetch ---
-if symbol and search:
-    ticker = f"{symbol}.NS"
-    try:
-        stock = yf.Ticker(ticker)
-        price = stock.info.get("currentPrice")
-        hist = stock.history(period="5d", interval="1h")
-
-        if price is None and hist.empty:
-            st.error("❌ No data found. Invalid symbol or rate limit reached.")
-        elif price is None:
-            st.warning("⚠️ Price unavailable. Try again later.")
-        elif hist.empty:
-            st.warning("⚠️ Chart data unavailable. API may be throttled.")
-        else:
-            st.metric("Current Price (INR)", f"₹{price}")
-            st.line_chart(hist["Close"])
-            st.success(f"✅ Data fetched for {symbol}")
-    except Exception as e:
-        st.error(f"🚨 Error: {e}")
-
-# --- Penny Stock List Button ---
-show_penny = st.button("📉 Show Stocks Below ₹100")
-
-if show_penny:
-    st.subheader("💡 Stocks Under ₹100 (Sample List)")
-
-    penny_stocks = {
-        "SUZLON.NS": "Suzlon Energy",
-        "IRFC.NS": "Indian Railway Finance",
-        "YESBANK.NS": "Yes Bank",
-        "IDEA.NS": "Vodafone Idea",
-        "NHPC.NS": "NHPC Ltd",
-        "BANKINDIA.NS": "Bank of India",
-        "UNIONBANK.NS": "Union Bank"
+    return {
+        "name": info.get("longName", symbol),
+        "price": round(info["currentPrice"], 2),
+        "change": round(info["currentPrice"] - info["previousClose"], 2),
+        "percent_change": round(((info["currentPrice"] - info["previousClose"]) / info["previousClose"]) * 100, 2),
+        "market_cap": round(info.get("marketCap", 0) / 1e7, 2),
+        "pe_ratio": round(info.get("trailingPE", 0), 2),
+        "open": round(info.get("open", 0), 2),
+        "high": round(info.get("dayHigh", 0), 2),
+        "low": round(info.get("dayLow", 0), 2),
+        "prev_close": round(info.get("previousClose", 0), 2),
+        "avg_price": round(hist["Close"].mean(), 2),
+        "trend": "Uptrend" if info["currentPrice"] > info["open"] else "Downtrend",
+        "chart_data": hist["Close"]
     }
 
-    for ticker, name in penny_stocks.items():
-        try:
-            data = yf.Ticker(ticker).info
-            price = data.get("currentPrice")
-            if price and price < 100:
-                st.write(f"📌 **{name}** (`{ticker}`): ₹{price}")
-        except:
-            st.write(f"⚠️ Could not fetch price for {name} ({ticker})")
+def render_card(data):
+    st.set_page_config(page_title="📈 Ritesh Real Time Stock", layout="wide")
+    st.title("📈 Ritesh Real Time Stock")
+    st.markdown(f"### 🏷️ {data['name']}")
+
+    col1, col2, col3 = st.columns(3)
+    col1.metric("Price (₹)", data["price"], f"{data['change']} ({data['percent_change']}%)")
+    col2.metric("Market Cap", f'₹{data["market_cap"]} Cr')
+    col3.metric("P/E Ratio", data["pe_ratio"])
+
+    with st.expander("🔍 More Stats"):
+        st.write(f"Open: ₹{data['open']} | High: ₹{data['high']} | Low: ₹{data['low']}")
+        st.write(f"Prev Close: ₹{data['prev_close']} | Avg Price: ₹{data['avg_price']}")
+        st.write(f"Trend: {data['trend']}")
+
+    st.markdown("### 📊 Intraday Chart")
+    st.line_chart(data["chart_data"])
+
+symbol = st.text_input("🔎 Enter NSE Symbol (e.g. RELIANCE.NS, INFY.NS)", value="IDEA.NS")
+if symbol:
+    try:
+        data = fetch_stock(symbol)
+        render_card(data)
+    except:
+        st.error("⚠️ Data fetch failed. Try a valid symbol or check connectivity.")
+
 
 
 
