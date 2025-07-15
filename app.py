@@ -16,15 +16,34 @@ def load_nse_symbols():
 
 nse_symbols = load_nse_symbols()
 
-# 🧠 Step 2: Autocorrect + Symbol Resolution
+# 🧠 Step 2: Autocorrect + Resolver with Direct + Fuzzy + Static fallback
 def resolve_symbol(user_input):
     user_input = user_input.strip().upper().replace(".NS", "")
-    best_match = get_close_matches(user_input, nse_symbols, n=1, cutoff=0.6)
-    if best_match:
-        return best_match[0] + ".NS"
+    
+    # Direct match from NSE list
+    if user_input in nse_symbols:
+        return user_input + ".NS"
+    
+    # Fallback static map
+    static_map = {
+        "RELIANCE": "RELIANCE.NS",
+        "TATAMOTORS": "TATAMOTORS.NS",
+        "SBIN": "SBIN.NS",
+        "ICICIBANK": "ICICIBANK.NS",
+        "HDFC": "HDFC.NS",
+        "INFY": "INFY.NS"
+    }
+    if user_input in static_map:
+        return static_map[user_input]
+
+    # Fuzzy match with relaxed cutoff
+    fuzzy = get_close_matches(user_input, nse_symbols, n=1, cutoff=0.4)
+    if fuzzy:
+        return fuzzy[0] + ".NS"
+    
     return None
 
-# 📈 Step 3: Fetch Metrics from yfinance
+# 📊 Step 3: Fetch full stock metrics
 def fetch_stock_data(symbol):
     try:
         stock = yf.Ticker(symbol)
@@ -59,7 +78,7 @@ def fetch_stock_data(symbol):
     except:
         return None
 
-# 🖼️ Step 4: UI Start
+# 🖼️ Step 4: UI + Input
 st.markdown("<h1 style='text-align:center; color:#1c3d5a;'>📈 Ritesh Real Time Stock</h1>", unsafe_allow_html=True)
 user_input = st.text_input("🔍 Enter stock name (e.g. reliance, tatamotors, icici)", value="relaince")
 
@@ -73,19 +92,18 @@ if resolved:
         """, unsafe_allow_html=True)
         st.markdown(f"<h3 style='color:#1c3d5a;'>{data['name']}</h3>", unsafe_allow_html=True)
 
-        # 📊 Primary Metrics Panel
+        # Metrics Panel
         col1, col2, col3 = st.columns(3)
         col1.metric("Price ₹", data["price"], f"{data['change']} ({data['percent']}%)")
         col2.metric("Market Cap", f"₹{data['market_cap']} Cr")
         col3.metric("P/E Ratio", data["pe"])
 
-        # 📈 Secondary Panel
         col4, col5, col6 = st.columns(3)
         col4.metric("ROCE", f"{data['roce']}%")
         col5.metric("Avg Price", f"₹{data['avg_price']}")
         col6.metric("Sentiment", data["sentiment"])
 
-        # 📘 Trading Block
+        # Stats Section
         st.markdown("### 📊 Trading Stats")
         st.write(f"Open: ₹{data['open']} | High: ₹{data['high']} | Low: ₹{data['low']}")
         st.write(f"Prev Close: ₹{data['prev_close']}")
@@ -96,7 +114,7 @@ if resolved:
     else:
         st.warning(f"⚠️ Symbol resolved as {resolved}, but data fetch failed. Try again.")
 else:
-    st.error("❌ Could not recognize input. Check spelling or try valid NSE stock names.")
+    st.error("❌ Could not recognize input. Check spelling or use valid NSE stock names.")
 
 
 
