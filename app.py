@@ -1,10 +1,9 @@
 import streamlit as st
 import yfinance as yf
 
-def fetch_stock(symbol):
+def fetch_stock_data(symbol):
     stock = yf.Ticker(symbol)
     info = stock.info
-    hist = stock.history(period="1d", interval="5m")
 
     return {
         "name": info.get("longName", symbol),
@@ -17,9 +16,8 @@ def fetch_stock(symbol):
         "high": round(info.get("dayHigh", 0), 2),
         "low": round(info.get("dayLow", 0), 2),
         "prev_close": round(info.get("previousClose", 0), 2),
-        "avg_price": round(hist["Close"].mean(), 2),
-        "trend": "Uptrend" if info["currentPrice"] > info["open"] else "Downtrend",
-        "chart_data": hist["Close"]
+        "avg_price": None,  # Removed graph so no historical fetch
+        "trend": "Uptrend" if info["currentPrice"] > info["open"] else "Downtrend"
     }
 
 def render_card(data):
@@ -34,19 +32,17 @@ def render_card(data):
 
     with st.expander("🔍 More Stats"):
         st.write(f"Open: ₹{data['open']} | High: ₹{data['high']} | Low: ₹{data['low']}")
-        st.write(f"Prev Close: ₹{data['prev_close']} | Avg Price: ₹{data['avg_price']}")
+        st.write(f"Prev Close: ₹{data['prev_close']}")
         st.write(f"Trend: {data['trend']}")
-
-    st.markdown("### 📊 Intraday Chart")
-    st.line_chart(data["chart_data"])
 
 symbol = st.text_input("🔎 Enter NSE Symbol (e.g. RELIANCE.NS, INFY.NS)", value="IDEA.NS")
 if symbol:
     try:
-        data = fetch_stock(symbol)
-        render_card(data)
+        stock_data = fetch_stock_data(symbol)
+        render_card(stock_data)
     except:
         st.error("⚠️ Data fetch failed. Try a valid symbol or check connectivity.")
+
 
 
 
