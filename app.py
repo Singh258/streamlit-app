@@ -1,18 +1,12 @@
 import streamlit as st
 import yfinance as yf
-from nsetools import Nse
 from difflib import get_close_matches
 
 st.set_page_config(page_title="Ritesh NSE Tracker", layout="centered")
 
 @st.cache_data
 def load_symbols():
-    try:
-        nse = Nse()
-        symbol_data = nse.get_stock_codes()
-        return list(symbol_data.keys())[1:]  # skip 'SYMBOL'
-    except:
-        return []
+    return ["RELIANCE", "TATAMOTORS", "SBIN", "ICICIBANK", "INFY", "HDFC", "ONGC", "ITC", "MARUTI", "LT"]
 
 nse_symbols = load_symbols()
 
@@ -38,7 +32,7 @@ def resolve_symbol(user_input):
 @st.cache_data
 def get_below_50_stocks():
     result = []
-    for symbol in nse_symbols[:1000]:
+    for symbol in nse_symbols:
         try:
             info = yf.Ticker(symbol + ".NS").info
             price = info.get("currentPrice", 0)
@@ -51,13 +45,13 @@ def get_below_50_stocks():
 def fetch_stock_data(symbol):
     try:
         info = yf.Ticker(symbol).info
-        price = round(info["currentPrice"], 2)
-        open_p = round(info["open"], 2)
-        high = round(info["dayHigh"], 2)
-        low = round(info["dayLow"], 2)
-        prev = round(info["previousClose"], 2)
+        price = round(info.get("currentPrice", 0), 2)
+        open_p = round(info.get("open", 0), 2)
+        high = round(info.get("dayHigh", 0), 2)
+        low = round(info.get("dayLow", 0), 2)
+        prev = round(info.get("previousClose", 0), 2)
         change = round(price - prev, 2)
-        percent = round((change / prev) * 100, 2)
+        percent = round((change / prev) * 100, 2) if prev != 0 else 0
         avg = round((price + high + low) / 3, 2)
         delta = high - low
         trend = "Sideways" if delta < 0.3 else ("Uptrend" if price > open_p else "Downtrend")
