@@ -3,7 +3,16 @@ import yfinance as yf
 from nsepython import nse_eq
 from difflib import get_close_matches
 
-st.set_page_config(page_title="Ritesh Real Time Stock", layout="centered")
+st.set_page_config(page_title="📈 Ritesh NSE Tracker", layout="centered")
+
+# 🏦 NSE Branding Visuals
+st.markdown("""
+    <div style='text-align:center; padding:10px; background-color:#03254c; color:white;'>
+        <img src='https://nsearchives.nseindia.com/web/sites/default/files/2020-08/about_nse.jpg' height='60'/>
+        <h2 style='margin:0;'>Ritesh Real Time Stock Tracker</h2>
+        <p style='font-size:14px;'>Powered by NSE & Yahoo Finance APIs</p>
+    </div>
+""", unsafe_allow_html=True)
 
 @st.cache_data
 def load_symbols():
@@ -37,7 +46,7 @@ def resolve_symbol(user_input):
 @st.cache_data
 def get_below_50_stocks():
     result = []
-    for symbol in nse_symbols[:1000]:  # limit for performance
+    for symbol in nse_symbols[:1000]:
         try:
             info = yf.Ticker(symbol + ".NS").info
             price = info.get("currentPrice", 0)
@@ -49,7 +58,7 @@ def get_below_50_stocks():
 
 def fetch_stock_data(symbol):
     try:
-        info = yf.Ticker(symbol + ".NS").info
+        info = yf.Ticker(symbol).info
         price = round(info["currentPrice"], 2)
         open_p = round(info["open"], 2)
         high = round(info["dayHigh"], 2)
@@ -92,22 +101,19 @@ def fetch_stock_data(symbol):
     except:
         return None
 
-# 🖼️ UI Layout
-st.markdown("<h1 style='text-align:center; color:#1c3d5a;'>📉 Ritesh Real Time Stock</h1>", unsafe_allow_html=True)
+# 🧭 Tabs
+tab1, tab2 = st.tabs(["🔎 Search Stock", "💸 Penny Stocks"])
 
-tab1, tab2 = st.tabs(["🔎 Search Input", "📋 Browse Penny Stocks"])
-
-# Tab 1 – Search box
 with tab1:
-    user_input = st.text_input("Type stock name (e.g. idea, jp power)", value="jp power")
+    user_input = st.text_input("Search NSE Stock by name/symbol", value="jp power")
     resolved = resolve_symbol(user_input)
     if resolved:
         data = fetch_stock_data(resolved)
         if data:
-            st.markdown(f"### 🔍 {data['name']}")
+            st.markdown(f"## 📊 {data['name']}")
             if data["mode"] == "PRICE_ONLY":
-                st.success(f"💰 Price: ₹{data['price']} | Change: {data['change']} ({data['percent']}%)")
-                st.info("ℹ️ High-value stock. Showing price only.")
+                st.success(f"💰 ₹{data['price']} | Change: ₹{data['change']} ({data['percent']}%)")
+                st.info("High-value stock. Showing basic details.")
             else:
                 col1, col2, col3 = st.columns(3)
                 col1.metric("Price ₹", data["price"], f"{data['change']} ({data['percent']}%)")
@@ -119,24 +125,23 @@ with tab1:
                 col5.metric("Avg Price", f"₹{data['avg_price']}")
                 col6.metric("Sentiment", data["sentiment"])
 
-                st.markdown("### 📊 Trading Stats")
+                st.markdown("#### 🔍 Trading Stats")
                 st.write(f"Open: ₹{data['open']} | High: ₹{data['high']} | Low: ₹{data['low']}")
                 st.write(f"Prev Close: ₹{data['prev_close']}")
                 st.write(f"50 DMA: {data['dma_50']} | 200 DMA: {data['dma_200']}")
                 st.write(f"Trend: **{data['trend']}**")
         else:
-            st.warning("⚠️ Data fetch failed. Try again.")
+            st.warning("⚠️ Could not fetch data.")
     else:
-        st.error("❌ Symbol not recognized. Check spelling.")
+        st.error("❌ Symbol not found.")
 
-# Tab 2 – Browse button
 with tab2:
     below_50 = get_below_50_stocks()
     if below_50:
-        selected = st.selectbox("Select NSE stock under ₹50", below_50)
-        data = fetch_stock_data(selected)
+        selected = st.selectbox("Browse Stocks Below ₹50", below_50)
+        data = fetch_stock_data(selected + ".NS")
         if data:
-            st.markdown(f"### 🔍 {data['name']}")
+            st.markdown(f"## 📊 {data['name']}")
             col1, col2, col3 = st.columns(3)
             col1.metric("Price ₹", data["price"], f"{data['change']} ({data['percent']}%)")
             col2.metric("Market Cap", f"₹{data['market_cap']} Cr")
@@ -147,15 +152,17 @@ with tab2:
             col5.metric("Avg Price", f"₹{data['avg_price']}")
             col6.metric("Sentiment", data["sentiment"])
 
-            st.markdown("### 📊 Trading Stats")
+            st.markdown("#### 🔍 Trading Stats")
             st.write(f"Open: ₹{data['open']} | High: ₹{data['high']} | Low: ₹{data['low']}")
             st.write(f"Prev Close: ₹{data['prev_close']}")
             st.write(f"50 DMA: {data['dma_50']} | 200 DMA: {data['dma_200']}")
             st.write(f"Trend: **{data['trend']}**")
         else:
-            st.warning("⚠️ Data not found for selection.")
+            st.warning("⚠️ Stock info not available.")
     else:
-        st.warning("⚠️ No penny stocks found in NSE data. Check connection or try later.")
+        st.warning("No NSE stocks found under ₹50. Try again later.")
+
+
 
 
 
