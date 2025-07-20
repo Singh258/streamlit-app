@@ -7,8 +7,9 @@ st.set_page_config(page_title="Ritesh NSE Tracker", layout="centered")
 @st.cache_data
 def load_symbols():
     return [
-        "RELIANCE", "TATAMOTORS", "SBIN", "ICICIBANK", "INFY", "HDFC", "ONGC", "ITC", "MARUTI", "LT", "SUZLON",
-        "IDFC", "YESBANK", "BANKBARODA", "ASHOKLEY", "IDEA", "GMRINFRA", "NHPC", "IRFC", "JPPOWER", "SJVN"
+        "RELIANCE", "TATAMOTORS", "SBIN", "ICICIBANK", "INFY", "HDFC", "ONGC", "ITC", "MARUTI", "LT",
+        "SUZLON", "IDFC", "YESBANK", "BANKBARODA", "ASHOKLEY", "IDEA", "GMRINFRA", "NHPC", "IRFC",
+        "JPPOWER", "SJVN", "BHEL", "PFC", "NBCC", "IOB"
     ]
 
 def resolve_symbol(user_input):
@@ -60,6 +61,7 @@ def fetch_stock_data(sym):
     except:
         return None
 
+@st.cache_data
 def scan_penny_stocks():
     result = []
     for symbol in load_symbols():
@@ -81,7 +83,7 @@ def scan_penny_stocks():
             continue
     return result
 
-st.markdown("<h2 style='text-align:center;'>Ritesh NSE Stock Research App</h2>", unsafe_allow_html=True)
+st.markdown("<h2 style='text-align:center;'>📈 Ritesh NSE Stock Research App</h2>", unsafe_allow_html=True)
 tab1, tab2 = st.tabs(["🔍 Search Stock", "📊 Browse Penny Stocks"])
 
 with tab1:
@@ -89,7 +91,7 @@ with tab1:
     resolved = resolve_symbol(query)
     if resolved:
         data = fetch_stock_data(resolved)
-        if data:
+        if data and data["price"] > 0:
             st.subheader(data["name"])
             st.metric("Price ₹", data["price"], f"{data['change']} ({data['percent']}%)")
             st.write(f"Open: ₹{data['open']} | High: ₹{data['high']} | Low: ₹{data['low']}")
@@ -98,18 +100,18 @@ with tab1:
             st.write(f"Volatility: {data['volatility']} | Trend: {data['trend']}")
             st.success(f"📍 Signal: {data['signal']}")
         else:
-            st.warning("⚠️ Data fetch failed.")
+            st.warning("⚠️ Could not fetch live data.")
     else:
         st.error("❌ Symbol not found.")
 
 with tab2:
     penny_list = scan_penny_stocks()
     if penny_list:
-        st.subheader("Stocks Below ₹50")
+        st.subheader("💸 Penny Stocks Under ₹50")
         st.dataframe(penny_list, use_container_width=True)
-        selected = st.selectbox("Select stock for details", [item["Symbol"] for item in penny_list])
+        selected = st.selectbox("Select stock for detailed view", [item["Symbol"] for item in penny_list])
         detail = fetch_stock_data(selected + ".NS")
-        if detail:
+        if detail and detail["price"] > 0:
             st.subheader(detail["name"])
             col1, col2, col3 = st.columns(3)
             col1.metric("Price ₹", detail["price"], f"{detail['change']} ({detail['percent']}%)")
