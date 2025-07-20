@@ -1,9 +1,8 @@
 import streamlit as st
 import yfinance as yf
 
-st.set_page_config(page_title="Ritesh NSE Tracker", layout="centered")
+st.set_page_config(page_title="📊 Ritesh NSE Stock App", layout="centered")
 
-# 🔍 Fetch real-time data for any NSE symbol
 def fetch_stock(symbol):
     symbol = symbol.strip().upper()
     if not symbol.endswith(".NS"):
@@ -25,16 +24,15 @@ def fetch_stock(symbol):
     except:
         return None
 
-# 💸 Fetch penny stocks under ₹50 dynamically
 @st.cache_data(ttl=1800)
 def get_penny_stocks():
-    penny_symbols = [
-        "SUZLON.NS", "JPPOWER.NS", "IDEA.NS", "IRFC.NS", "NHPC.NS", "SJVN.NS",
-        "IDFC.NS", "YESBANK.NS", "IOB.NS", "UNIONBANK.NS", "BANKBARODA.NS",
-        "NBCC.NS", "BHEL.NS", "GMRINFRA.NS", "PFC.NS"
+    symbols = [
+        "SUZLON.NS", "JPPOWER.NS", "IDEA.NS", "IRFC.NS", "NHPC.NS",
+        "SJVN.NS", "IDFC.NS", "YESBANK.NS", "IOB.NS", "UNIONBANK.NS",
+        "BANKBARODA.NS", "NBCC.NS", "GMRINFRA.NS", "PFC.NS", "BHEL.NS"
     ]
     result = []
-    for sym in penny_symbols:
+    for sym in symbols:
         try:
             ticker = yf.Ticker(sym)
             hist = ticker.history(period="1d", interval="1m")
@@ -54,16 +52,15 @@ def get_penny_stocks():
             continue
     return result
 
-st.markdown("<h2 style='text-align:center;'>📊 Ritesh NSE Stock Dashboard</h2>", unsafe_allow_html=True)
-tab1, tab2 = st.tabs(["🔍 Search Any Stock", "💸 Penny Stock Screener"])
+st.markdown("<h2 style='text-align:center;'>📈 NSE Stock Dashboard</h2>", unsafe_allow_html=True)
+tab1, tab2 = st.tabs(["🔍 Search Stock", "💸 Penny Stocks"])
 
-# 🔍 Tab 1: Live stock search
 with tab1:
-    query = st.text_input("Enter NSE symbol (e.g. RELIANCE, SUZLON, TCS)")
+    query = st.text_input("Enter NSE stock symbol (e.g. RELIANCE, TCS, SUZLON)")
     if query:
         data = fetch_stock(query)
         if data:
-            st.success(f"Live Data for {data['symbol']}")
+            st.success(f"Live data for {data['symbol']}")
             col1, col2, col3 = st.columns(3)
             col1.metric("Price ₹", data["price"])
             col2.metric("High ₹", data["high"])
@@ -72,13 +69,15 @@ with tab1:
             col4.metric("Open ₹", data["open"])
             col5.metric("Volume", f"{data['volume']:,}")
         else:
-            st.error("⚠️ Live data unavailable or symbol incorrect.")
+            st.error("⚠️ Could not fetch live data. Try again or check symbol.")
 
-# 💸 Tab 2: Penny stock list
 with tab2:
     penny = get_penny_stocks()
     if penny:
+        st.subheader("Penny Stocks (Price under ₹50)")
         st.dataframe(penny, use_container_width=True)
+    else:
+        st.warning("⚠️ Penny stock data not available at the moment.")
     else:
         st.warning("⚠️ Could not fetch penny stock data.")
 
