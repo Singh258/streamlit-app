@@ -6,7 +6,12 @@ st.set_page_config(page_title="Ritesh NSE Tracker", layout="centered")
 
 @st.cache_data
 def load_symbols():
-    return ["RELIANCE", "TATAMOTORS", "SBIN", "ICICIBANK", "INFY", "HDFC", "ONGC", "ITC", "MARUTI", "LT"]
+    # Extended list for coverage
+    return [
+        "RELIANCE", "TATAMOTORS", "SBIN", "ICICIBANK", "INFY", "HDFC", "ONGC",
+        "ITC", "MARUTI", "LT", "SUZLON", "IDFC", "YESBANK", "BANKBARODA",
+        "ASHOKLEY", "IDEA", "GMRINFRA", "NHPC", "IRFC", "JPPOWER", "SJVN"
+    ]
 
 nse_symbols = load_symbols()
 
@@ -14,33 +19,29 @@ def resolve_symbol(user_input):
     user_input = user_input.strip().upper().replace(".NS", "")
     if user_input in nse_symbols:
         return user_input + ".NS"
-    static_map = {
-        "RELIANCE": "RELIANCE.NS",
-        "TATAMOTORS": "TATAMOTORS.NS",
-        "SBIN": "SBIN.NS",
-        "ICICIBANK": "ICICIBANK.NS",
-        "HDFC": "HDFC.NS",
-        "INFY": "INFY.NS"
-    }
-    if user_input in static_map:
-        return static_map[user_input]
     fuzzy = get_close_matches(user_input, nse_symbols, n=1, cutoff=0.4)
     if fuzzy:
         return fuzzy[0] + ".NS"
     return None
 
 @st.cache_data
-def get_below_50_stocks():
-    result = []
+def fetch_all_penny_stocks():
+    stock_list = []
     for symbol in nse_symbols:
         try:
             info = yf.Ticker(symbol + ".NS").info
             price = info.get("currentPrice", 0)
             if price and price < 50:
-                result.append(symbol)
+                stock_list.append({
+                    "name": info.get("longName", symbol),
+                    "symbol": symbol,
+                    "price": round(price, 2),
+                    "change": round(price - info.get("previousClose", 0), 2),
+                    "percent": round(((price - info.get("previousClose", 0)) / info.get("previousClose", 1e-6)) * 100, 2)
+                })
         except:
             continue
-    return sorted(result)
+    return sorted(stock_list, key=lambda x: x["price"])
 
 def fetch_stock_data(symbol):
     try:
@@ -51,19 +52,10 @@ def fetch_stock_data(symbol):
         low = round(info.get("dayLow", 0), 2)
         prev = round(info.get("previousClose", 0), 2)
         change = round(price - prev, 2)
-        percent = round((change / prev) * 100, 2) if prev != 0 else 0
+        percent = round((change / prev) * 100, 2) if prev else 0
         avg = round((price + high + low) / 3, 2)
         delta = high - low
         trend = "Sideways" if delta < 0.3 else ("Uptrend" if price > open_p else "Downtrend")
-
-        if price > 50:
-            return {
-                "name": info.get("longName", symbol),
-                "price": price,
-                "change": change,
-                "percent": percent,
-                "mode": "PRICE_ONLY"
-            }
 
         return {
             "name": info.get("longName", symbol),
@@ -81,8 +73,7 @@ def fetch_stock_data(symbol):
             "dma_50": "6.99 (mocked)",
             "dma_200": "7.88 (mocked)",
             "sentiment": "52.63% Sell (simulated)",
-            "trend": trend,
-            "mode": "FULL"
+            "trend": trend
         }
     except:
         return None
@@ -97,50 +88,46 @@ with tab1:
         data = fetch_stock_data(resolved)
         if data:
             st.subheader(data["name"])
-            if data["mode"] == "PRICE_ONLY":
-                st.write(f"Price ₹{data['price']} | Change ₹{data['change']} ({data['percent']}%)")
-            else:
-                col1, col2, col3 = st.columns(3)
-                col1.metric("Price ₹", data["price"], f"{data['change']} ({data['percent']}%)")
-                col2.metric("Market Cap", f"₹{data['market_cap']} Cr")
-                col3.metric("P/E", data["pe"])
-
-                col4, col5, col6 = st.columns(3)
-                col4.metric("ROCE", f"{data['roce']}%")
-                col5.metric("Avg Price", f"₹{data['avg_price']}")
-                col6.metric("Sentiment", data["sentiment"])
-
-                st.write(f"Open: ₹{data['open']} | High: ₹{data['high']} | Low: ₹{data['low']}")
-                st.write(f"Prev Close: ₹{data['prev_close']}")
-                st.write(f"DMA 50: {data['dma_50']} | DMA 200: {data['dma_200']}")
-                st.write(f"Trend: {data['trend']}")
-        else:
-            st.warning("Data fetch failed.")
-    else:
-        st.error("Symbol not found.")
-
-with tab2:
-    penny_list = get_below_50_stocks()
-    if penny_list:
-        selected = st.selectbox("Choose NSE stock under ₹50", penny_list)
-        data = fetch_stock_data(selected + ".NS")
-        if data:
-            st.subheader(data["name"])
             col1, col2, col3 = st.columns(3)
             col1.metric("Price ₹", data["price"], f"{data['change']} ({data['percent']}%)")
             col2.metric("Market Cap", f"₹{data['market_cap']} Cr")
             col3.metric("P/E", data["pe"])
-
             col4, col5, col6 = st.columns(3)
             col4.metric("ROCE", f"{data['roce']}%")
             col5.metric("Avg Price", f"₹{data['avg_price']}")
             col6.metric("Sentiment", data["sentiment"])
-
             st.write(f"Open: ₹{data['open']} | High: ₹{data['high']} | Low: ₹{data['low']}")
             st.write(f"Prev Close: ₹{data['prev_close']}")
             st.write(f"DMA 50: {data['dma_50']} | DMA 200: {data['dma_200']}")
             st.write(f"Trend: {data['trend']}")
         else:
-            st.warning("Data not available.")
+            st.warning("⚠️ Data fetch failed.")
     else:
-        st.warning("No stocks found under ₹50.")
+        st.error("❌ Symbol not found.")
+
+with tab2:
+    penny_stocks = fetch_all_penny_stocks()
+    if penny_stocks:
+        st.subheader("Penny Stock Overview (Price < ₹50)")
+        for stock in penny_stocks:
+            st.markdown(f"**{stock['name']} ({stock['symbol']})**  → ₹{stock['price']} ({stock['percent']}%)")
+        selected = st.selectbox("Choose stock to view details", [s["symbol"] for s in penny_stocks])
+        detail = fetch_stock_data(selected + ".NS")
+        if detail:
+            st.subheader(detail["name"])
+            col1, col2, col3 = st.columns(3)
+            col1.metric("Price ₹", detail["price"], f"{detail['change']} ({detail['percent']}%)")
+            col2.metric("Market Cap", f"₹{detail['market_cap']} Cr")
+            col3.metric("P/E", detail["pe"])
+            col4, col5, col6 = st.columns(3)
+            col4.metric("ROCE", f"{detail['roce']}%")
+            col5.metric("Avg Price", f"₹{detail['avg_price']}")
+            col6.metric("Sentiment", detail["sentiment"])
+            st.write(f"Open: ₹{detail['open']} | High: ₹{detail['high']} | Low: ₹{detail['low']}")
+            st.write(f"Prev Close: ₹{detail['prev_close']}")
+            st.write(f"DMA 50: {detail['dma_50']} | DMA 200: {detail['dma_200']}")
+            st.write(f"Trend: {detail['trend']}")
+        else:
+            st.warning("⚠️ Details unavailable.")
+    else:
+        st.warning("No penny stocks under ₹50 found.")
