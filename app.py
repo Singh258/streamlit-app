@@ -8,7 +8,7 @@ st.set_page_config(page_title="Ritesh Stock Tracker", layout="centered")
 def load_symbols():
     return [
         "RELIANCE", "SUZLON", "INFY", "TATAMOTORS", "SBIN", "ICICIBANK",
-        "HDFC", "ONGC", "ITC", "MARUTI", "LT", "IDFC", "YESBANK"
+        "HDFC", "ONGC", "ITC", "MARUTI", "LT", "IDFC", "YESBANK", "BANKBARODA"
     ]
 
 def resolve_symbol(name):
@@ -24,37 +24,39 @@ def resolve_symbol(name):
 def get_data(sym):
     try:
         ticker = yf.Ticker(sym)
-        fast = ticker.fast_info
+        hist = ticker.history(period="1d", interval="1m")
+        latest = hist.tail(1)
+        if latest.empty:
+            return None
         return {
-            "price": round(fast.get("last_price", 0), 2),
-            "high": round(fast.get("day_high", 0), 2),
-            "low": round(fast.get("day_low", 0), 2),
-            "open": round(fast.get("open", 0), 2),
-            "prev": round(fast.get("previous_close", 0), 2),
-            "volume": fast.get("last_volume", 0)
+            "price": round(latest["Close"].iloc[0], 2),
+            "high": round(latest["High"].iloc[0], 2),
+            "low": round(latest["Low"].iloc[0], 2),
+            "open": round(latest["Open"].iloc[0], 2),
+            "volume": int(latest["Volume"].iloc[0])
         }
     except:
         return None
 
-st.markdown("<h2 style='text-align:center;'>🔍 Ritesh Stock Price App</h2>", unsafe_allow_html=True)
+st.markdown("<h2 style='text-align:center;'>📈 Ritesh Stock Price App</h2>", unsafe_allow_html=True)
+
 query = st.text_input("Enter stock name or symbol")
 resolved = resolve_symbol(query)
 
 if resolved:
     data = get_data(resolved)
-    if data and data["price"] > 0:
+    if data:
         st.success(f"Symbol: {resolved}")
         col1, col2, col3 = st.columns(3)
         col1.metric("Price ₹", data["price"])
         col2.metric("High ₹", data["high"])
         col3.metric("Low ₹", data["low"])
-        col4, col5, col6 = st.columns(3)
+        col4, col5 = st.columns(2)
         col4.metric("Open ₹", data["open"])
-        col5.metric("Prev Close ₹", data["prev"])
-        col6.metric("Volume", f"{data['volume']:,}")
+        col5.metric("Volume", f"{data['volume']:,}")
     else:
-        st.warning("⚠️ Data not available.")
+        st.warning("⚠️ Data not available. Try again shortly.")
 elif query:
-    st.error("❌ Symbol not recognized.")
+    st.error("❌ Symbol not recognized. Please check spelling.")
 
 
