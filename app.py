@@ -3,6 +3,7 @@ import yfinance as yf
 
 st.set_page_config(page_title="Ritesh NSE Tracker", layout="centered")
 
+# 🔍 Fetch real-time data for any NSE symbol
 def fetch_stock(symbol):
     symbol = symbol.strip().upper()
     if not symbol.endswith(".NS"):
@@ -12,7 +13,7 @@ def fetch_stock(symbol):
         hist = ticker.history(period="1d", interval="1m")
         latest = hist.tail(1)
         if latest.empty:
-            raise ValueError("Blank response")
+            return None
         return {
             "symbol": symbol,
             "price": round(latest["Close"].iloc[0], 2),
@@ -22,24 +23,18 @@ def fetch_stock(symbol):
             "volume": int(latest["Volume"].iloc[0])
         }
     except:
-        return {
-            "symbol": symbol,
-            "price": 2795.40,
-            "high": 2820.00,
-            "low": 2780.50,
-            "open": 2790.00,
-            "volume": 15483000
-        }
+        return None
 
-@st.cache_data
-def penny_stock_list():
-    symbols = [
-        "SUZLON.NS", "JPPOWER.NS", "IDEA.NS", "IRFC.NS", "SJVN.NS",
-        "NHPC.NS", "IDFC.NS", "YESBANK.NS", "IOB.NS", "BANKBARODA.NS",
-        "PFC.NS", "NBCC.NS"
+# 💸 Fetch penny stocks under ₹50 dynamically
+@st.cache_data(ttl=1800)
+def get_penny_stocks():
+    penny_symbols = [
+        "SUZLON.NS", "JPPOWER.NS", "IDEA.NS", "IRFC.NS", "NHPC.NS", "SJVN.NS",
+        "IDFC.NS", "YESBANK.NS", "IOB.NS", "UNIONBANK.NS", "BANKBARODA.NS",
+        "NBCC.NS", "BHEL.NS", "GMRINFRA.NS", "PFC.NS"
     ]
-    data = []
-    for sym in symbols:
+    result = []
+    for sym in penny_symbols:
         try:
             ticker = yf.Ticker(sym)
             hist = ticker.history(period="1d", interval="1m")
@@ -48,7 +43,7 @@ def penny_stock_list():
                 continue
             price = round(latest["Close"].iloc[0], 2)
             if 1 < price < 50:
-                data.append({
+                result.append({
                     "Symbol": sym,
                     "Price ₹": price,
                     "High ₹": round(latest["High"].iloc[0], 2),
@@ -57,33 +52,34 @@ def penny_stock_list():
                 })
         except:
             continue
-    return data or [{
-        "Symbol": "SUZLON.NS",
-        "Price ₹": 45.10,
-        "High ₹": 46.00,
-        "Low ₹": 44.50,
-        "Volume": 58410000
-    }]
+    return result
 
-st.markdown("<h2 style='text-align:center;'>📊 Ritesh NSE Stock App</h2>", unsafe_allow_html=True)
-tab1, tab2 = st.tabs(["🔍 Stock Search", "💸 Penny Stock List"])
+st.markdown("<h2 style='text-align:center;'>📊 Ritesh NSE Stock Dashboard</h2>", unsafe_allow_html=True)
+tab1, tab2 = st.tabs(["🔍 Search Any Stock", "💸 Penny Stock Screener"])
 
+# 🔍 Tab 1: Live stock search
 with tab1:
-    query = st.text_input("Enter stock symbol (e.g. RELIANCE, SUZLON, TCS)")
+    query = st.text_input("Enter NSE symbol (e.g. RELIANCE, SUZLON, TCS)")
     if query:
         data = fetch_stock(query)
-        st.success(f"Showing Data for {data['symbol']}")
-        col1, col2, col3 = st.columns(3)
-        col1.metric("Price ₹", data["price"])
-        col2.metric("High ₹", data["high"])
-        col3.metric("Low ₹", data["low"])
-        col4, col5 = st.columns(2)
-        col4.metric("Open ₹", data["open"])
-        col5.metric("Volume", f"{data['volume']:,}")
+        if data:
+            st.success(f"Live Data for {data['symbol']}")
+            col1, col2, col3 = st.columns(3)
+            col1.metric("Price ₹", data["price"])
+            col2.metric("High ₹", data["high"])
+            col3.metric("Low ₹", data["low"])
+            col4, col5 = st.columns(2)
+            col4.metric("Open ₹", data["open"])
+            col5.metric("Volume", f"{data['volume']:,}")
+        else:
+            st.error("⚠️ Live data unavailable or symbol incorrect.")
 
+# 💸 Tab 2: Penny stock list
 with tab2:
-    penny = penny_stock_list()
-    st.subheader("Penny Stocks (Below ₹50)")
-    st.dataframe(penny, use_container_width=True)
+    penny = get_penny_stocks()
+    if penny:
+        st.dataframe(penny, use_container_width=True)
+    else:
+        st.warning("⚠️ Could not fetch penny stock data.")
 
 
