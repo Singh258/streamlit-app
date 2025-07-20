@@ -1,114 +1,96 @@
 import streamlit as st
 import yfinance as yf
+import pandas as pd
+import time
+from datetime import datetime
 
-# 👇 Set up page layout and title for Streamlit app
-st.set_page_config(page_title="📊 Ritesh NSE Stock Tracker", layout="centered")
+st.set_page_config(page_title="📈 NSE Tracker", layout="wide")
+st.markdown("<h1 style='text-align:center;'>📊 NSE Stock Viewer & Penny Screener</h1>", unsafe_allow_html=True)
 
-# 🚀 Function to fetch real-time data for a single NSE stock
-def fetch_stock(symbol):
-    # 🔍 Clean and format user input
+def normalize(symbol):
+    if not symbol: return None
     symbol = symbol.strip().upper()
-    if not symbol.endswith(".NS"):  # Ensure it's in NSE format
-        symbol += ".NS"
+    return symbol + ".NS" if not symbol.endswith(".NS") else symbol
 
-    try:
-        # 📡 Create ticker object using yfinance
-        ticker = yf.Ticker(symbol)
-
-        # 🕒 Fetch latest intraday historical data (1-minute resolution)
-        hist = ticker.history(period="1d", interval="1m")
-
-        # 📦 Extract the most recent data point
-        latest = hist.tail(1)
-
-        # ⚠️ If no data is returned, consider it unavailable
-        if latest.empty:
-            return None
-
-        # ✅ If data exists, format it into dictionary
-        return {
-            "symbol": symbol,
-            "price": round(latest["Close"].iloc[0], 2),
-            "high": round(latest["High"].iloc[0], 2),
-            "low": round(latest["Low"].iloc[0], 2),
-            "open": round(latest["Open"].iloc[0], 2),
-            "volume": int(latest["Volume"].iloc[0])
-        }
-    except Exception as e:
-        # 🛑 Any error (network, symbol, library) returns None
-        return None
-
-# 💸 Function to get list of penny stocks under ₹50
-@st.cache_data(ttl=1800)  # ⏱️ Cache for 30 mins to reduce API load
-def get_penny_stocks():
-    # 📋 Predefined symbols commonly considered penny stocks
-    penny_symbols = [
-        "SUZLON.NS", "JPPOWER.NS", "IDEA.NS", "IRFC.NS", "NHPC.NS",
-        "SJVN.NS", "IDFC.NS", "YESBANK.NS", "IOB.NS", "UNIONBANK.NS",
-        "BANKBARODA.NS", "NBCC.NS", "GMRINFRA.NS", "PFC.NS", "BHEL.NS"
-    ]
-
-    result = []
-
-    for sym in penny_symbols:
+def fetch(symbol, retries=3, delay=2):
+    for i in range(retries):
         try:
-            ticker = yf.Ticker(sym)
-            hist = ticker.history(period="1d", interval="1m")
-            latest = hist.tail(1)
+            t = yf.Ticker(symbol)
+            h = t.history(period="1d", interval="1m").tail(1)
+            if not h.empty:
+                return {
+                    "symbol": symbol,
+                    "price": round(h["Close"].iloc[0], 2),
+                    "high": round(h["High"].iloc[0], 2),
+                    "low": round(h["Low"].iloc[0], 2),
+                    "open": round(h["Open"].iloc[0], 2),
+                    "volume": int(h["Volume"].iloc[0]),
+                    "time": datetime.now().strftime('%H:%M:%S')
+                }
+        except: pass
+        time.sleep(delay * (i + 1))
+    return None
 
-            if latest.empty:
-                continue  # ❌ Skip symbol if no data found
+@st.cache_data(ttl=1800)
+def scan_penny(symbols, threshold=50):
+    result = []
+    for s in symbols:
+        d = fetch(s)
+        if d and 1 < d["price"] < threshold:
+            result.append({
+                "Symbol": s,
+                "Price ₹": d["price"],
+                "High ₹": d["high"],
+                "Low ₹": d["low"],
+                "Volume": d["volume"],
+                "Time": d["time"]
+            })
+    return pd.DataFrame(result)
 
-            price = round(latest["Close"].iloc[0], 2)
+def error(symbol):
+    st.error(f"❌ No data found for `{symbol}`.")
+    st.caption("Check symbol or retry later.")
 
-            # ✅ Only include stocks under ₹50
-            if 1 < price < 50:
-                result.append({
-                    "Symbol": sym,
-                    "Price ₹": price,
-                    "High ₹": round(latest["High"].iloc[0], 2),
-                    "Low ₹": round(latest["Low"].iloc[0], 2),
-                    "Volume": int(latest["Volume"].iloc[0])
-                })
-        except Exception:
-            continue  # ❌ If error, skip symbol
+symbol_list = [
+    "SUZLON.NS", "JPPOWER.NS", "IDEA.NS", "IRFC.NS", "NHPC.NS", "SJVN.NS",
+    "IDFC.NS", "YESBANK.NS", "IOB.NS", "UNIONBANK.NS", "BANKBARODA.NS",
+    "NBCC.NS", "GMRINFRA.NS", "PFC.NS", "BHEL.NS", "HUDCO.NS", "LICI.NS",
+    "RVNL.NS", "UCOBANK.NS", "CENTRALBK.NS", "MAHABANK.NS", "COALINDIA.NS"
+]
 
-    # 📦 Return full penny stock list
-    return result
+tab1, tab2, tab3 = st.tabs(["🔍 Stock", "💸 Penny Stocks", "📘 Help"])
 
-# 🎨 Build Streamlit UI layout
-st.markdown("<h2 style='text-align:center;'>📈 NSE Stock Dashboard</h2>", unsafe_allow_html=True)
-
-# 📊 Two tabs for user interaction
-tab1, tab2 = st.tabs(["🔍 Search Stock", "💸 Penny Stocks"])
-
-# 🔍 Tab 1 — Search any NSE stock symbol and show live data
 with tab1:
-    query = st.text_input("Enter NSE stock symbol (e.g. RELIANCE, TCS, SUZLON)")
-
+    query = st.text_input("Enter NSE symbol (e.g. RELIANCE, TCS, BANKBARODA)")
     if query:
-        data = fetch_stock(query)
-
-        if data:
-            st.success(f"Live data for {data['symbol']}")
+        s = normalize(query)
+        d = fetch(s)
+        if d:
+            st.success(f"✅ {s} — {d['time']}")
             col1, col2, col3 = st.columns(3)
-            col1.metric("Price ₹", data["price"])
-            col2.metric("High ₹", data["high"])
-            col3.metric("Low ₹", data["low"])
+            col1.metric("Price ₹", d["price"])
+            col2.metric("High ₹", d["high"])
+            col3.metric("Low ₹", d["low"])
             col4, col5 = st.columns(2)
-            col4.metric("Open ₹", data["open"])
-            col5.metric("Volume", f"{data['volume']:,}")
+            col4.metric("Open ₹", d["open"])
+            col5.metric("Volume", f"{d['volume']:,}")
         else:
-            st.error("⚠️ Could not fetch live data. Try again or check symbol.")
+            error(s)
 
-# 💸 Tab 2 — Show penny stocks under ₹50 with full metrics
 with tab2:
-    penny = get_penny_stocks()
-
-    if penny:
-        st.subheader("📋 Penny Stocks (Below ₹50)")
-        st.dataframe(penny, use_container_width=True)
+    st.info("Scanning penny stocks below ₹50...")
+    df = scan_penny(symbol_list)
+    if not df.empty:
+        st.subheader("📋 Penny Stocks Live")
+        st.dataframe(df, use_container_width=True)
     else:
-        st.warning("⚠️ Penny stock data not available at the moment.")
+        st.warning("⚠️ Penny data unavailable. Retry later.")
 
-
+with tab3:
+    st.markdown("""
+    ### 📘 Help Guide
+    - Enter valid NSE symbols like `TCS`, `RELIANCE`, `SUZLON`, etc.
+    - Penny tab shows live prices for low-cap stocks under ₹50.
+    - Uses free yfinance API with retry logic.
+    - No data stored — all fetched live.
+    """)
