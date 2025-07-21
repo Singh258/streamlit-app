@@ -1,4 +1,4 @@
-  import streamlit as st
+import streamlit as st
 import pandas as pd
 import yfinance as yf
 from difflib import get_close_matches
