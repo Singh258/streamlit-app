@@ -1,11 +1,19 @@
 import streamlit as st
 import pandas as pd
 import yfinance as yf
-import requests
+from difflib import get_close_matches
 
-# App config and title
-st.set_page_config(page_title="Ritesh Real Stock Tracker", layout="centered")
-st.markdown("<h1 style='text-align: center;'>📊 Ritesh Real Stock Tracker</h1>", unsafe_allow_html=True)
+# List of known Indian stock symbols (extendable)
+known_symbols = ["RELIANCE", "TCS", "INFY", "HDFCBANK", "ICICIBANK", "SBIN", "HDFC", "ITC", "WIPRO", "LT", "ADANIENT", "ADANIPORTS", "YESBANK", "IRFC", "IDEA", "SUZLON", "JPPOWER"]
+
+# Suggest closest match for incorrect typing
+def suggest_symbol(user_input):
+    matches = get_close_matches(user_input.upper(), known_symbols, n=1, cutoff=0.6)
+    return matches[0] if matches else None
+
+# Page setup
+st.set_page_config(page_title="Ritesh Stock Tracker", layout="centered")
+st.markdown("<h1 style='text-align: center;'>🤖 Ritesh Stock Tracker (AI-Enhanced)</h1>", unsafe_allow_html=True)
 
 # Glassmorphism CSS
 st.markdown("""
@@ -14,7 +22,7 @@ st.markdown("""
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     }
     .stApp {
-        background: rgba(255, 255, 255, 0.1);
+        background: rgba(255, 255, 255, 0.15);
         backdrop-filter: blur(12px);
         border-radius: 16px;
         padding: 2rem;
@@ -26,43 +34,43 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# Search bar
-st.subheader("🔍 Search Live Stock Price")
-stock_symbol = st.text_input("Enter Stock Symbol (e.g. RELIANCE.NS, INFY.NS)")
+# Stock symbol input
+st.subheader("🔍 Search Any Stock (No need to add .NS)")
+user_input = st.text_input("Enter stock name (e.g. RELIANCE, TCS)")
 
-if stock_symbol:
+# Autocorrect + .NS auto handling
+if user_input:
+    user_input = user_input.upper().strip()
+    if user_input not in known_symbols:
+        suggestion = suggest_symbol(user_input)
+        if suggestion:
+            st.info(f"Did you mean **{suggestion}**? Showing data for it.")
+            user_input = suggestion
+        else:
+            st.warning("Couldn't recognize this stock. Please check spelling.")
+
+    # Append .NS for Indian stocks
+    full_symbol = f"{user_input}.NS"
+
+    # Fetch live price
     try:
-        stock = yf.Ticker(stock_symbol)
+        stock = yf.Ticker(full_symbol)
         data = stock.history(period="1d", interval="1m")
-        current_price = data['Close'].iloc[-1]
-        st.success(f"💰 Current Price of {stock_symbol.upper()}: ₹{round(current_price, 2)}")
+        if not data.empty:
+            current_price = data['Close'].iloc[-1]
+            st.success(f"💰 Current Price of {user_input}: ₹{round(current_price, 2)}")
+        else:
+            st.warning("⚠️ No data available right now.")
     except Exception as e:
-        st.error("⚠️ Unable to fetch stock price. Please check symbol or try again later.")
+        st.error(f"Error fetching stock: {e}")
 
-# Penny Stock Section
-st.subheader("💹 Penny Stocks (Price < ₹50)")
-
-def get_penny_stocks():
-    try:
-        url = "https://www.moneycontrol.com/stocks/marketstats/nse-loser/all-companies_0_0/index.html"
-        df_list = pd.read_html(url)
-        df = df_list[0]
-        df.columns = [col.strip() for col in df.columns]
-        df = df.rename(columns={"Company Name": "Symbol", "Last Price": "Price"})
-        df['Price'] = pd.to_numeric(df['Price'], errors='coerce')
-        penny_df = df[df['Price'] < 50].sort_values("Price").dropna()
-        return penny_df[['Symbol', 'Price']].head(10)
-    except:
-        return pd.DataFrame(columns=["Symbol", "Price"])
-
-penny_stocks = get_penny_stocks()
-
-if not penny_stocks.empty:
-    st.table(penny_stocks)
-else:
-    st.info("📡 Unable to load penny stocks currently. Please try again later.")
+# Penny Stocks section (static demo)
+st.subheader("💹 Penny Stocks (Price < ₹50) - Demo")
+demo_penny = pd.DataFrame({
+    "Symbol": ["IRFC", "YESBANK", "IDEA", "SUZLON", "JPPOWER"],
+    "Price (₹)": [46.0, 24.5, 13.2, 38.0, 18.5]
+})
+st.table(demo_penny)
 
 # Footer
-st.markdown("<hr><center>©2023 Ritesh Real Stock Tracker</center>", unsafe_allow_html=True)
-
-
+st.markdown("<hr><center>©2023 Ritesh Stock Tracker</center>", unsafe_allow_html=True)
