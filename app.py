@@ -1,64 +1,66 @@
 import streamlit as st
-import yfinance as yf
 import pandas as pd
-import io
+import yfinance as yf
+import requests
 
-# ---------- Page Setup ----------
-st.set_page_config(page_title="Ritesh Stock Tracker", page_icon="📈", layout="wide")
-st.title("📊 Ritesh Stock Price Dashboard")
-st.markdown("Snapshot of stock prices with volume and daily stats. Powered by yfinance. Built for execution — no fallback.")
+# App title
+st.set_page_config(page_title="StockLens", layout="centered")
+st.markdown("<h1 style='text-align: center;'>📈 StockLens</h1>", unsafe_allow_html=True)
 
-# ---------- Default Ticker List ----------
-default_tickers = [
-    "RELIANCE.NS", "TCS.NS", "INFY.NS", "HDFCBANK.NS", "ICICIBANK.NS",
-    "SBIN.NS", "ITC.NS", "AXISBANK.NS", "LT.NS", "BHARTIARTL.NS"
-]
+# Glassmorphism CSS style
+st.markdown("""
+    <style>
+    body {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    }
+    .stApp {
+        background: rgba(255, 255, 255, 0.1);
+        backdrop-filter: blur(12px);
+        border-radius: 16px;
+        padding: 2rem;
+        margin-top: 20px;
+        color: white;
+    }
+    .reportview-container .markdown-text-container {
+        font-size: 1.2rem;
+    }
+    </style>
+""", unsafe_allow_html=True)
 
-# ---------- Ticker Input ----------
-tickers_input = st.text_area("Enter stock tickers (comma-separated)", value=", ".join(default_tickers))
-tickers = [t.strip().upper() for t in tickers_input.split(",") if t.strip()]
+# Stock search
+st.subheader("🔍 Search Stock Live Price")
+stock_symbol = st.text_input("Enter Stock Symbol (e.g., TCS.NS for NSE, AAPL for US)")
 
-# ---------- Data Fetch Function ----------
-@st.cache_data(show_spinner=False)
-def fetch_stock_snapshot(ticker_list):
-    snapshot = []
-    for ticker in ticker_list:
-        try:
-            stock = yf.Ticker(ticker)
-            info = stock.info
-            snapshot.append({
-                "Ticker": ticker,
-                "Price ₹": f"{info.get('regularMarketPrice', 'N/A'):.2f}" if info.get("regularMarketPrice") else "N/A",
-                "Open": f"{info.get('open', 'N/A'):.2f}" if info.get("open") else "N/A",
-                "Day High": f"{info.get('dayHigh', 'N/A'):.2f}" if info.get("dayHigh") else "N/A",
-                "Day Low": f"{info.get('dayLow', 'N/A'):.2f}" if info.get("dayLow") else "N/A",
-                "Volume": f"{info.get('volume', 'N/A'):,}" if info.get("volume") else "N/A"
-            })
-        except Exception as e:
-            snapshot.append({
-                "Ticker": ticker,
-                "Price ₹": "Error",
-                "Open": "Error",
-                "Day High": "Error",
-                "Day Low": "Error",
-                "Volume": f"{str(e)}"
-            })
-    return pd.DataFrame(snapshot)
+if stock_symbol:
+    try:
+        stock = yf.Ticker(stock_symbol)
+        data = stock.history(period="1d", interval="1m")
+        current_price = data['Close'].iloc[-1]
+        st.success(f"💰 Current Price of {stock_symbol.upper()}: ₹{round(current_price, 2)}")
+    except Exception as e:
+        st.error(f"Error fetching data: {e}")
 
-# ---------- Display Logic ----------
-if tickers:
-    df = fetch_stock_snapshot(tickers)
-    st.dataframe(df, use_container_width=True)
+# Penny stock section
+st.subheader("💹 Penny Stocks (Below ₹50)")
+
+def get_nse_penny_stocks():
+    try:
+        url = "https://www.niftytrader.in/stock-analysis"
+        df_list = pd.read_html(url)
+        df = df_list[0]
+        df.columns = [col.strip() for col in df.columns]
+        penny_df = df[df['Price'] < 50].sort_values(by="Price")
+        return penny_df[['Symbol', 'Price', 'Change %']].head(10)
+    except:
+        return pd.DataFrame(columns=["Symbol", "Price", "Change %"])
+
+penny_stocks = get_nse_penny_stocks()
+
+if not penny_stocks.empty:
+    st.table(penny_stocks)
 else:
-    st.warning("Please enter at least one valid stock ticker.")
+    st.info("Could not load penny stock data currently.")
 
-# ---------- Export Section ----------
-st.markdown("#### Export as CSV")
-if 'df' in locals():
-    csv_buffer = io.StringIO()
-    df.to_csv(csv_buffer, index=False)
-    st.download_button("📥 Download CSV", data=csv_buffer.getvalue(), file_name="stock_snapshot.csv", mime="text/csv")
+# Footer
+st.markdown("<hr><center>©2023 StockLens</center>", unsafe_allow_html=True)
 
-# ---------- Footer ----------
-st.markdown("---")
-st.caption("App: Ritesh Stock Tracker · Engine: Streamlit + yfinance · Made for precision deployment")
