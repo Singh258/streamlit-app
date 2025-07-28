@@ -7,7 +7,8 @@ from difflib import get_close_matches
 st.caption("🧪 Debug Mode: v2.1")
 
 # Known Indian stock symbols
-known_symbols = ["RELIANCE", "TCS", "INFY", "HDFCBANK", "ICICIBANK", "SBIN", "HDFC", "ITC", "WIPRO", "LT", "ADANIENT", "ADANIPORTS", "YESBANK", "IRFC", "IDEA", "SUZLON", "JPPOWER"]
+known_symbols = ["RELIANCE", "TCS", "INFY", "HDFCBANK", "ICICIBANK", "SBIN", "HDFC", "ITC", "WIPRO", "LT",
+                 "ADANIENT", "ADANIPORTS", "YESBANK", "IRFC", "IDEA", "SUZLON", "JPPOWER"]
 
 def suggest_symbol(user_input):
     matches = get_close_matches(user_input.upper(), known_symbols, n=1, cutoff=0.6)
